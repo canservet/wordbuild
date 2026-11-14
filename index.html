@@ -38,6 +38,16 @@
     /* Fallback Core Layout Styles (if external CDN is blocked/offline) */
     body { background-color: #09090b; color: #f4f4f5; margin: 0; }
     .hidden { display: none !important; }
+    #mobile-bottom-nav .mnav-row{display:flex;align-items:center;justify-content:space-around;padding:2px 0}
+    #mobile-bottom-nav .mnav-row>button{font-size:20px;line-height:1;padding:8px 28px;color:#a1a1aa;border-radius:12px;display:flex;align-items:center;gap:4px}
+    #mobile-bottom-nav .mnav-row>button.on{color:#fff;background:#27272a}
+    #mobile-bottom-nav .mnav-caret{font-size:10px;opacity:.7}
+    #mnav-menu{position:absolute;left:50%;bottom:calc(100% + 8px);transform:translateX(-10%);background:#18181b;border:1px solid #3f3f46;border-radius:16px;padding:6px;box-shadow:0 10px 30px rgba(0,0,0,.6);display:flex;flex-direction:column;min-width:150px}
+    #mnav-menu.hidden{display:none!important}
+    #mnav-menu button{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;color:#e4e4e7;font-size:14px;font-weight:600;text-align:left}
+    #mnav-menu button.on{background:#27272a;color:#fff}
+    @media (max-width:639px){ #dash-hero{display:none} body{padding-bottom:3.5rem!important} }
+
     .flex { display: flex; }
     .grid { display: grid; }
     button, select, input { font-family: inherit; }
@@ -180,7 +190,7 @@
 
     <!-- ==================== TAB 1: DASHBOARD ==================== -->
     <section id="tab-dashboard" class="space-y-4 sm:space-y-6">
-      <div class="rounded-3xl bg-zinc-900 text-white p-5 sm:p-8 shadow-xl border border-zinc-800">
+      <div id="dash-hero" class="rounded-3xl bg-zinc-900 text-white p-5 sm:p-8 shadow-xl border border-zinc-800">
         <div class="max-w-3xl">
           <span class="inline-flex items-center gap-1.5 text-xs font-semibold bg-zinc-800 border border-zinc-700 px-3 py-1 rounded-full mb-3 text-zinc-300">
             <span>🧠</span> CEFR A1–C2 • Essential 4000 • Aralıklı Tekrar (SRS)
@@ -649,12 +659,16 @@
   </main>
 
   <!-- Mobile Fixed Bottom Navigation Bar -->
-  <nav id="mobile-bottom-nav" class="fixed bottom-0 left-0 right-0 z-40 bg-zinc-900/95 backdrop-blur-md border-t border-zinc-800 sm:hidden flex items-center justify-around pt-1.5 safe-pb shadow-2xl no-select">
-    <button data-mobile-tab="dashboard" class="mobile-nav-btn flex flex-col items-center justify-center p-1 text-white font-bold active:scale-95"><span class="text-base">📊</span><span class="text-[10px]">Panel</span></button>
-    <button data-mobile-tab="test-exam" class="mobile-nav-btn flex flex-col items-center justify-center p-1 text-zinc-400 font-semibold active:scale-95"><span class="text-base">📝</span><span class="text-[10px]">Test Çöz</span></button>
-    <button data-mobile-tab="flashcards" class="mobile-nav-btn flex flex-col items-center justify-center p-1 text-zinc-400 font-semibold active:scale-95"><span class="text-base">🗂️</span><span class="text-[10px]">Kartlar</span></button>
-    <button data-mobile-tab="spelling" class="mobile-nav-btn flex flex-col items-center justify-center p-1 text-zinc-400 font-semibold active:scale-95"><span class="text-base">✍️</span><span class="text-[10px]">Yazma</span></button>
-    <button data-mobile-tab="dictionary" class="mobile-nav-btn flex flex-col items-center justify-center p-1 text-zinc-400 font-semibold active:scale-95"><span class="text-base">📖</span><span class="text-[10px]">Sözlük</span></button>
+  <nav id="mobile-bottom-nav" class="fixed bottom-0 left-0 right-0 z-40 bg-zinc-900/95 backdrop-blur-md border-t border-zinc-800 sm:hidden no-select safe-pb shadow-2xl">
+    <div id="mnav-menu" class="hidden" role="menu">
+      <button data-study="test-exam" role="menuitem"><span>📝</span><span>Test Çöz</span></button>
+      <button data-study="flashcards" role="menuitem"><span>🗂️</span><span>Kartlar</span></button>
+      <button data-study="spelling" role="menuitem"><span>✍️</span><span>Yazma</span></button>
+    </div>
+    <div class="mnav-row">
+      <button data-mobile-tab="dashboard" class="mobile-nav-btn" aria-label="Panel">📊</button>
+      <button id="mnav-study" aria-label="Çalış" aria-haspopup="true"><span id="mnav-study-icon">📝</span><span class="mnav-caret">▴</span></button>
+    </div>
   </nav>
 
   <!-- ==================== MODALS ==================== -->
@@ -956,6 +970,7 @@
 
     function speakWord(wordObj, forceAccent = null) {
       if (!wordObj) return;
+      if (!settings.sound) { stopAllSpeech(); return; }
       const acc = forceAccent || settings.accent || 'uk';
       const url = acc === 'us' ? (wordObj.audioUs || wordObj.audioUk) : (wordObj.audioUk || wordObj.audioUs);
       if (currentAudioObj) {
@@ -969,7 +984,13 @@
       }
     }
 
+    function stopAllSpeech() {
+      try { if (currentAudioObj) currentAudioObj.pause(); } catch(e) {}
+      try { if ('speechSynthesis' in window) window.speechSynthesis.cancel(); } catch(e) {}
+    }
+
     function fallbackTTS(text, acc) {
+      if (!settings.sound) return;
       if (!('speechSynthesis' in window)) return;
       window.speechSynthesis.cancel();
       const u = new SpeechSynthesisUtterance(text);
@@ -1018,11 +1039,18 @@
       });
 
       document.querySelectorAll('.mobile-nav-btn').forEach(btn => {
-        const isMatch = btn.dataset.mobileTab === tabId;
-        btn.className = isMatch
-          ? 'mobile-nav-btn flex flex-col items-center justify-center p-1 text-white font-bold active:scale-95'
-          : 'mobile-nav-btn flex flex-col items-center justify-center p-1 text-zinc-400 font-semibold active:scale-95';
+        btn.classList.toggle('on', btn.dataset.mobileTab === tabId);
       });
+      (function syncStudyNav() {
+        const icons = { 'test-exam': '📝', 'flashcards': '🗂️', 'spelling': '✍️' };
+        const trg = document.getElementById('mnav-study');
+        if (!trg) return;
+        const isStudy = tabId in icons;
+        trg.classList.toggle('on', isStudy);
+        if (isStudy) document.getElementById('mnav-study-icon').textContent = icons[tabId];
+        document.querySelectorAll('#mnav-menu button').forEach(b => b.classList.toggle('on', b.dataset.study === tabId));
+        document.getElementById('mnav-menu').classList.add('hidden');
+      })();
 
       if (tabId === 'dashboard') renderDashboard();
       if (tabId === 'test-exam') updateExamScopeInfo();
@@ -2156,11 +2184,15 @@
 
       document.getElementById('btn-accent-uk').onclick = () => { settings.accent = 'uk'; saveSettings(); syncHeaderToggles(); };
       document.getElementById('btn-accent-us').onclick = () => { settings.accent = 'us'; saveSettings(); syncHeaderToggles(); };
-      document.getElementById('btn-toggle-sound').onclick = () => { settings.sound = !settings.sound; saveSettings(); syncHeaderToggles(); };
+      document.getElementById('btn-toggle-sound').onclick = () => { settings.sound = !settings.sound; if (!settings.sound) stopAllSpeech(); saveSettings(); syncHeaderToggles(); };
 
       // Tab buttons
       document.querySelectorAll('.tab-btn').forEach(btn => btn.onclick = () => switchTab(btn.dataset.tab));
       document.querySelectorAll('.mobile-nav-btn').forEach(btn => btn.onclick = () => switchTab(btn.dataset.mobileTab));
+      const mnavMenu = document.getElementById('mnav-menu');
+      document.getElementById('mnav-study').onclick = (e) => { e.stopPropagation(); mnavMenu.classList.toggle('hidden'); };
+      mnavMenu.querySelectorAll('button').forEach(b => b.onclick = () => switchTab(b.dataset.study));
+      document.addEventListener('click', (e) => { if (!e.target.closest('#mnav-menu')) mnavMenu.classList.add('hidden'); });
 
       // Hero shortcuts
       document.getElementById('hero-btn-test').onclick = () => switchTab('test-exam');
